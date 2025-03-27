@@ -1,31 +1,35 @@
 use werewolfvillage;
 go
 
--- trigger pour marquer un joueur comme mort après une attaque
-create trigger tr_after_attack
-on dbo.players_play
+-- trigger 1 : appeler complete_tour quand un tour est marqué terminé
+create trigger tr_on_tour_end
+on dbo.turns
+after update
+as
+begin
+    if update(end_time)
+    begin
+        declare @tour_id int;
+        declare @party_id int;
+
+        select @tour_id = id_turn, @party_id = id_party
+        from inserted
+        where end_time is not null;
+
+        if @tour_id is not null and @party_id is not null
+        begin
+            exec complete_tour @tour_id, @party_id;
+        end;
+    end;
+end;
+go
+
+-- trigger 2 : appeler username_to_lower quand un joueur s'inscrit
+create trigger tr_on_player_insert
+on dbo.players
 after insert
 as
 begin
-    declare @id_player int;
-    declare @id_party int;
-    declare @action varchar(10);
-
-    -- récupérer les informations de l'action insérée
-    select @id_player = i.id_player,
-           @action = i.action,
-           @id_party = t.id_party
-    from inserted i
-    join dbo.turns t on i.id_turn = t.id_turn;
-
-    -- si l'action est une attaque, marquer le joueur ciblé comme mort
-    if @action = 'attack'
-    begin
-        -- ici, on suppose que le joueur ciblé est déterminé par une logique (par exemple, position cible)
-        -- pour simplifier, on marque le joueur attaquant comme mort (à adapter selon les règles du jeu)
-        update dbo.players_in_parties
-        set is_alive = 'non'
-        where id_party = @id_party and id_player = @id_player;
-    end;
+    exec username_to_lower;
 end;
 go
